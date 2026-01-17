@@ -76,6 +76,7 @@ RUN set -eux; \
         sudo \
         lua5.1 \
         lua-bit32 \
+        lua-cjson \
         lua-cqueues \
         lua-http \
         lua-posix \
