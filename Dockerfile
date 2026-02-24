@@ -27,8 +27,8 @@ RUN set -eux; \
         lua-bit32 \
         lua-cqueues \
         lua-http \
-        lua-posix \
         lua-check \
+        luarocks \
         pre-commit \
     ; \
     rm -rf /var/lib/apt/lists/*
@@ -57,6 +57,16 @@ RUN set -eux; \
     if [ -f lua/nixio.lua ]; then install -D -m 0644 lua/nixio.lua /out/usr/local/share/lua/5.1/nixio.lua; fi; \
     rm -rf /tmp/nixio
 
+# Install luaposix from LuaRocks (pinned), staged into /out/usr/local
+RUN set -eux; \
+    luarocks --lua-version=5.1 --tree /out/usr/local install luaposix 36.3-1; \
+    LUA_PATH='/out/usr/local/share/lua/5.1/?.lua;/out/usr/local/share/lua/5.1/?/init.lua;;' \
+    LUA_CPATH='/out/usr/local/lib/lua/5.1/?.so;;' \
+    lua5.1 -e "assert(require('posix.sys.socket')); print('luaposix ok on lua5.1')"; \
+    LUA_PATH='/out/usr/local/share/lua/5.1/?.lua;/out/usr/local/share/lua/5.1/?/init.lua;;' \
+    LUA_CPATH='/out/usr/local/lib/lua/5.1/?.so;;' \
+    luajit -e "assert(require('posix.sys.socket')); print('luaposix ok on luajit')"
+
 ###############################################################################
 # Final stage – runtime only (no compiler toolchain)
 ###############################################################################
@@ -66,7 +76,7 @@ ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-# Runtime deps + Debian-packaged Lua modules
+# Runtime deps + Debian-packaged Lua modules (excluding lua-posix)
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -79,7 +89,6 @@ RUN set -eux; \
         lua-cjson \
         lua-cqueues \
         lua-http \
-        lua-posix \
         lua-check \
         luajit \
         wget \
@@ -93,7 +102,7 @@ RUN set -eux; \
     echo "${USERNAME} ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
     chmod 0440 "/etc/sudoers.d/${USERNAME}"
 
-# Copy compiled artefacts from builder
+# Copy compiled artefacts from builder (cffi, nixio, luaposix rock files)
 COPY --from=builder /out/ /
 
 USER ${USERNAME}
